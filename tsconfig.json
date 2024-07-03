@@ -21,7 +21,7 @@
     "noFallthroughCasesInSwitch": true,
 
     "paths": {
-      "react-mobile-picker": ["./lib"],
+      "react-draggable-picker": ["./lib"]
     }
   },
   "include": ["lib", "examples", "vite-env.d.ts"],

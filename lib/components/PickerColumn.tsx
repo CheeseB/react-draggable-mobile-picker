@@ -1,25 +1,37 @@
-import { CSSProperties, HTMLProps, createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react"
-import { usePickerActions, usePickerData } from "./Picker"
+import {
+  CSSProperties,
+  HTMLProps,
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
+import { usePickerActions, usePickerData } from './Picker';
 
 interface PickerColumnProps extends HTMLProps<HTMLDivElement> {
-  name: string
+  name: string;
 }
 
 const PickerColumnDataContext = createContext<{
-  key: string
-} | null>(null)
-PickerColumnDataContext.displayName = 'PickerColumnDataContext'
+  key: string;
+} | null>(null);
+PickerColumnDataContext.displayName = 'PickerColumnDataContext';
 
 export function useColumnData(componentName: string) {
-  const context = useContext(PickerColumnDataContext)
+  const context = useContext(PickerColumnDataContext);
   if (context === null) {
-    const error = new Error(`<${componentName} /> is missing a parent <Picker.Column /> component.`)
+    const error = new Error(
+      `<${componentName} /> is missing a parent <Picker.Column /> component.`
+    );
     if (Error.captureStackTrace) {
-      Error.captureStackTrace(error, useColumnData)
+      Error.captureStackTrace(error, useColumnData);
     }
-    throw error
+    throw error;
   }
-  return context
+  return context;
 }
 
 function PickerColumn({
@@ -28,174 +40,252 @@ function PickerColumn({
   name: key,
   ...restProps
 }: PickerColumnProps) {
-  const { height, itemHeight, wheelMode, value: groupValue, optionGroups } = usePickerData('Picker.Column')
+  const {
+    height,
+    itemHeight,
+    wheelMode,
+    value: groupValue,
+    optionGroups,
+  } = usePickerData('Picker.Column');
 
-  // Caculate the selected index
-  const value = useMemo(
-    () => groupValue[key],
-    [groupValue, key],
-  )
-  const options = useMemo(
-    () => optionGroups[key] || [],
-    [key, optionGroups],
-  )
-  const selectedIndex = useMemo(
-    () => {
-      let index = options.findIndex((o) => o.value === value)
-      if (index < 0) {
-        index = 0
-      }
-      return index
-    },
-    [options, value],
-  )
+  // Calculate the selected index
+  const value = useMemo(() => groupValue[key], [groupValue, key]);
+  const options = useMemo(() => optionGroups[key] || [], [key, optionGroups]);
+  const selectedIndex = useMemo(() => {
+    let index = options.findIndex((o) => o.value === value);
+    if (index < 0) {
+      index = 0;
+    }
+    return index;
+  }, [options, value]);
 
-  // Caculate the translate of scroller
+  // Calculate the translate of scroller
   const minTranslate = useMemo(
     () => height / 2 - itemHeight * options.length + itemHeight / 2,
-    [height, itemHeight, options],
-  )
+    [height, itemHeight, options]
+  );
   const maxTranslate = useMemo(
     () => height / 2 - itemHeight / 2,
-    [height, itemHeight],
-  )
-  const [scrollerTranslate, setScrollerTranslate] = useState<number>(0)
+    [height, itemHeight]
+  );
+  const [scrollerTranslate, setScrollerTranslate] = useState<number>(0);
   useEffect(() => {
-    setScrollerTranslate(height / 2 - itemHeight / 2 - selectedIndex * itemHeight)
-  }, [height, itemHeight, selectedIndex])
+    setScrollerTranslate(
+      height / 2 - itemHeight / 2 - selectedIndex * itemHeight
+    );
+  }, [height, itemHeight, selectedIndex]);
 
   // A handler to trigger the value change
-  const pickerActions = usePickerActions('Picker.Column')
-  const translateRef = useRef<number>(scrollerTranslate)
-  translateRef.current = scrollerTranslate
+  const pickerActions = usePickerActions('Picker.Column');
+  const translateRef = useRef<number>(scrollerTranslate);
+  translateRef.current = scrollerTranslate;
   const handleScrollerTranslateSettled = useCallback(() => {
-    let nextActiveIndex = 0
-    const currentTrans = translateRef.current
+    let nextActiveIndex = 0;
+    const currentTrans = translateRef.current;
     if (currentTrans >= maxTranslate) {
-      nextActiveIndex = 0
+      nextActiveIndex = 0;
     } else if (currentTrans <= minTranslate) {
-      nextActiveIndex = options.length - 1
+      nextActiveIndex = options.length - 1;
     } else {
-      nextActiveIndex = -Math.round((currentTrans - maxTranslate) / itemHeight)
+      nextActiveIndex = -Math.round((currentTrans - maxTranslate) / itemHeight);
     }
 
-    const changed = pickerActions.change(key, options[nextActiveIndex].value)
+    const changed = pickerActions.change(key, options[nextActiveIndex].value);
     if (!changed) {
-      setScrollerTranslate(height / 2 - itemHeight / 2 - nextActiveIndex * itemHeight)
+      setScrollerTranslate(
+        height / 2 - itemHeight / 2 - nextActiveIndex * itemHeight
+      );
     }
-  }, [pickerActions, height, itemHeight, key, maxTranslate, minTranslate, options])
-  
-  // Handle touch events
-  const [startScrollerTranslate, setStartScrollerTranslate] = useState<number>(0)
-  const [isMoving, setIsMoving] = useState<boolean>(false)
-  const [startTouchY, setStartTouchY] = useState<number>(0)
+  }, [
+    pickerActions,
+    height,
+    itemHeight,
+    key,
+    maxTranslate,
+    minTranslate,
+    options,
+  ]);
 
-  const updateScrollerWhileMoving = useCallback((nextScrollerTranslate: number) => {
-    if (nextScrollerTranslate < minTranslate) {
-      nextScrollerTranslate = minTranslate - Math.pow(minTranslate - nextScrollerTranslate, 0.8)
-    } else if (nextScrollerTranslate > maxTranslate) {
-      nextScrollerTranslate = maxTranslate + Math.pow(nextScrollerTranslate - maxTranslate, 0.8)
-    }
-    setScrollerTranslate(nextScrollerTranslate)
-  }, [maxTranslate, minTranslate])
+  // Handle touch and mouse events
+  const [startScrollerTranslate, setStartScrollerTranslate] =
+    useState<number>(0);
+  const [isMoving, setIsMoving] = useState<boolean>(false);
+  const [startTouchY, setStartTouchY] = useState<number>(0);
+  const [startMouseY, setStartMouseY] = useState<number>(0);
 
-  const handleTouchStart = useCallback((event: React.TouchEvent) => {
-    setStartTouchY(event.targetTouches[0].pageY)
-    setStartScrollerTranslate(scrollerTranslate)
-  }, [scrollerTranslate])
+  const updateScrollerWhileMoving = useCallback(
+    (nextScrollerTranslate: number) => {
+      if (nextScrollerTranslate < minTranslate) {
+        nextScrollerTranslate =
+          minTranslate - Math.pow(minTranslate - nextScrollerTranslate, 0.8);
+      } else if (nextScrollerTranslate > maxTranslate) {
+        nextScrollerTranslate =
+          maxTranslate + Math.pow(nextScrollerTranslate - maxTranslate, 0.8);
+      }
+      setScrollerTranslate(nextScrollerTranslate);
+    },
+    [maxTranslate, minTranslate]
+  );
 
-  const handleTouchMove = useCallback((event: TouchEvent) => {
-    if (event.cancelable) {
-      event.preventDefault()
-    }
+  const handleTouchStart = useCallback(
+    (event: React.TouchEvent) => {
+      setStartTouchY(event.targetTouches[0].pageY);
+      setStartScrollerTranslate(scrollerTranslate);
+    },
+    [scrollerTranslate]
+  );
 
-    if (!isMoving) {
-      setIsMoving(true)
-    }
+  const handleTouchMove = useCallback(
+    (event: TouchEvent) => {
+      if (event.cancelable) {
+        event.preventDefault();
+      }
 
-    const nextScrollerTranslate = startScrollerTranslate + event.targetTouches[0].pageY - startTouchY
-    updateScrollerWhileMoving(nextScrollerTranslate)
-  }, [isMoving, startScrollerTranslate, startTouchY, updateScrollerWhileMoving])
+      if (!isMoving) {
+        setIsMoving(true);
+      }
+
+      const nextScrollerTranslate =
+        startScrollerTranslate + event.targetTouches[0].pageY - startTouchY;
+      updateScrollerWhileMoving(nextScrollerTranslate);
+    },
+    [isMoving, startScrollerTranslate, startTouchY, updateScrollerWhileMoving]
+  );
 
   const handleTouchEnd = useCallback(() => {
     if (!isMoving) {
-      return
+      return;
     }
-    setIsMoving(false)
-    setStartTouchY(0)
-    setStartScrollerTranslate(0)
+    setIsMoving(false);
+    setStartTouchY(0);
+    setStartScrollerTranslate(0);
 
-    handleScrollerTranslateSettled()
-  }, [handleScrollerTranslateSettled, isMoving])
+    handleScrollerTranslateSettled();
+  }, [handleScrollerTranslateSettled, isMoving]);
 
   const handleTouchCancel = useCallback(() => {
     if (!isMoving) {
-      return
+      return;
     }
-    setIsMoving(false)
-    setStartTouchY(0)
-    setScrollerTranslate(startScrollerTranslate)
-    setStartScrollerTranslate(0)
-  }, [isMoving, startScrollerTranslate])
+    setIsMoving(false);
+    setStartTouchY(0);
+    setScrollerTranslate(startScrollerTranslate);
+    setStartScrollerTranslate(0);
+  }, [isMoving, startScrollerTranslate]);
+
+  // Handle mouse events
+  const handleMouseDown = useCallback(
+    (event: React.MouseEvent) => {
+      setStartMouseY(event.pageY);
+      setStartScrollerTranslate(scrollerTranslate);
+      setIsMoving(true);
+    },
+    [scrollerTranslate]
+  );
+
+  const handleMouseMove = useCallback(
+    (event: MouseEvent) => {
+      if (!isMoving) {
+        return;
+      }
+      const nextScrollerTranslate =
+        startScrollerTranslate + event.pageY - startMouseY;
+      updateScrollerWhileMoving(nextScrollerTranslate);
+    },
+    [isMoving, startScrollerTranslate, startMouseY, updateScrollerWhileMoving]
+  );
+
+  const handleMouseUp = useCallback(() => {
+    if (!isMoving) {
+      return;
+    }
+    setIsMoving(false);
+    setStartMouseY(0);
+    setStartScrollerTranslate(0);
+    handleScrollerTranslateSettled();
+  }, [handleScrollerTranslateSettled, isMoving]);
+
+  useEffect(() => {
+    if (isMoving) {
+      window.addEventListener('mousemove', handleMouseMove);
+      window.addEventListener('mouseup', handleMouseUp);
+    } else {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    }
+
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isMoving, handleMouseMove, handleMouseUp]);
 
   // Handle wheel events
-  const wheelingTimer = useRef<number | null>(null)
+  const wheelingTimer = useRef<number | null>(null);
 
-  const handleWheeling = useCallback((event: WheelEvent) => {
-    if (event.deltaY === 0) {
-      return
-    }
-    let delta = event.deltaY * 0.1
-    if (Math.abs(delta) < itemHeight) {
-      delta = itemHeight * Math.sign(delta)
-    }
-    if (wheelMode === 'normal') {
-      delta = -delta
-    }
+  const handleWheeling = useCallback(
+    (event: WheelEvent) => {
+      if (event.deltaY === 0) {
+        return;
+      }
+      let delta = event.deltaY * 0.1;
+      if (Math.abs(delta) < itemHeight) {
+        delta = itemHeight * Math.sign(delta);
+      }
+      if (wheelMode === 'normal') {
+        delta = -delta;
+      }
 
-    const nextScrollerTranslate = scrollerTranslate + delta
-    updateScrollerWhileMoving(nextScrollerTranslate)
-  }, [itemHeight, scrollerTranslate, updateScrollerWhileMoving, wheelMode])
+      const nextScrollerTranslate = scrollerTranslate + delta;
+      updateScrollerWhileMoving(nextScrollerTranslate);
+    },
+    [itemHeight, scrollerTranslate, updateScrollerWhileMoving, wheelMode]
+  );
 
   const handleWheelEnd = useCallback(() => {
-    handleScrollerTranslateSettled()
-  }, [handleScrollerTranslateSettled])
+    handleScrollerTranslateSettled();
+  }, [handleScrollerTranslateSettled]);
 
-  const handleWheel = useCallback((event: WheelEvent) => {
-    if (wheelMode === 'off') {
-      return
-    }
+  const handleWheel = useCallback(
+    (event: WheelEvent) => {
+      if (wheelMode === 'off') {
+        return;
+      }
 
-    if (event.cancelable) {
-      event.preventDefault()
-    }
+      if (event.cancelable) {
+        event.preventDefault();
+      }
 
-    handleWheeling(event)
+      handleWheeling(event);
 
-    if (wheelingTimer.current) {
-      clearTimeout(wheelingTimer.current)
-    }
+      if (wheelingTimer.current) {
+        clearTimeout(wheelingTimer.current);
+      }
 
-    wheelingTimer.current = setTimeout(() => {
-      handleWheelEnd()
-    }, 200) as unknown as number
-  }, [handleWheelEnd, handleWheeling, wheelingTimer, wheelMode])
+      wheelingTimer.current = setTimeout(() => {
+        handleWheelEnd();
+      }, 200) as unknown as number;
+    },
+    [handleWheelEnd, handleWheeling, wheelingTimer, wheelMode]
+  );
 
-  // 'touchmove' and 'wheel' should not be passive
-  const containerRef = useRef<HTMLDivElement | null>(null)
+  // 'touchmove', 'mousemove', and 'wheel' should not be passive
+  const containerRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
-    const container = containerRef.current
+    const container = containerRef.current;
     if (container) {
-      container.addEventListener('touchmove', handleTouchMove, { passive: false })
-      container.addEventListener('wheel', handleWheel, { passive: false })
+      container.addEventListener('touchmove', handleTouchMove, {
+        passive: false,
+      });
+      container.addEventListener('wheel', handleWheel, { passive: false });
     }
     return () => {
       if (container) {
-        container.removeEventListener('touchmove', handleTouchMove)
-        container.removeEventListener('wheel', handleWheel)
+        container.removeEventListener('touchmove', handleTouchMove);
+        container.removeEventListener('wheel', handleWheel);
       }
-    }
-  }, [handleTouchMove, handleWheel])
+    };
+  }, [handleTouchMove, handleWheel]);
 
   const columnStyle = useMemo<CSSProperties>(
     () => ({
@@ -206,13 +296,10 @@ function PickerColumn({
       transitionDuration: isMoving ? '0ms' : '300ms',
       transform: `translate3d(0, ${scrollerTranslate}px, 0)`,
     }),
-    [scrollerTranslate, isMoving],
-  )
+    [scrollerTranslate, isMoving]
+  );
 
-  const columnData = useMemo(
-    () => ({ key }),
-    [key],
-  )
+  const columnData = useMemo(() => ({ key }), [key]);
 
   return (
     <div
@@ -224,14 +311,14 @@ function PickerColumn({
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
       onTouchCancel={handleTouchCancel}
+      onMouseDown={handleMouseDown}
       {...restProps}
     >
       <PickerColumnDataContext.Provider value={columnData}>
         {children}
       </PickerColumnDataContext.Provider>
     </div>
-  )
+  );
 }
 
-
-export default PickerColumn
+export default PickerColumn;
